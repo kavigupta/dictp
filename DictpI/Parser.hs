@@ -7,24 +7,32 @@ import DictpI.Testing
 data DictpAST = Symbol String
                 | LiteralString String
                 | LiteralDictionary [(DictpAST, DictpAST)]
-                | TestContains DictpAST DictpAST
-                | Get DictpAST DictpAST
+                | TestContains DictpAST
+                | Subscript DictpAST DictpAST
                 | Set DictpAST DictpAST
                 | Lambda [DictpAST]
+        deriving (Eq, Show)
 
 type Parser x = ParsecT String String Identity x
 
 doParse :: Parser a -> String -> Either ParseError a
 doParse parser input = runIdentity $ runParserT parser "(unknown)" "" input
 
+nonSpacedDictP :: Parser DictpAST
+nonSpacedDictP = (Symbol <$> symbol)
+            <|> (LiteralString <$> literalString)
+            <|> (LiteralDictionary <$> literalDict)
+            <|> set
+            <|> subscript
+            <|> testContains
+            <|> lambda
+
 dictP :: Parser DictpAST
-dictP = try (Symbol <$> symbol)
-            <|> try (LiteralString <$> literalString)
-            <|> try (LiteralDictionary <$> literalDict)
-            <|> try testContains
-            <|> try get
-            <|> try set
-            <|> try lambda
+dictP = do
+    spaces
+    val <- nonSpacedDictP
+    spaces
+    return val
 
 -- lots of possible symbols
 symbol :: Parser String
@@ -56,20 +64,68 @@ strContents = do
         c <- noneOf "`'"
         return [c]
 
+dictEntry :: Parser (DictpAST, DictpAST)
+dictEntry = do
+    key <- dictP
+    spaces
+    _ <- char ':'
+    spaces
+    value <- dictP
+    spaces
+    return (key, value)
+
 literalDict :: Parser [(DictpAST, DictpAST)]
 literalDict = do
         _ <- char '{'
         spaces
-        return undefined
+        entries <- many (try commaTerminatedEntry)
+        lastEntry <- optionMaybe dictEntry
+        case lastEntry of
+            Nothing -> return []
+            Just lastEntry' -> char '}' >> return (entries ++ [lastEntry'])
 
-testContains :: a
-testContains = undefined
-get :: a
-get = undefined
-set :: a
-set = undefined
-lambda :: a
-lambda = undefined
+commaTerminatedEntry :: Parser (DictpAST, DictpAST)
+commaTerminatedEntry = do
+    u <- dictEntry
+    spaces
+    _ <- char ','
+    return u
+
+testContains :: Parser DictpAST
+testContains = lookAhead $ do
+    subscr <- subscript
+    spaces
+    _ <- char '?'
+    return $ TestContains subscr
+
+binaryGroup :: (Char, Char) -> (DictpAST -> DictpAST -> DictpAST) -> Parser DictpAST
+binaryGroup (start, end) combinator = do
+    spaces
+    _ <- char start
+    spaces
+    dict <- dictP
+    spaces
+    key <- dictP
+    spaces
+    _ <- char end
+    return $ combinator dict key
+
+subscript :: Parser DictpAST
+subscript = binaryGroup ('(', ')') Subscript
+
+set :: Parser DictpAST
+set = binaryGroup ('[', ']') Set
+
+lambda :: Parser DictpAST
+lambda = do
+    spaces
+    _ <- char '<'
+    spaces
+    body <- many dictP
+    spaces
+    _ <- char '>'
+    spaces
+    return $ Lambda body
 
 parserTests :: [(String, Bool)]
 parserTests = [
@@ -83,4 +139,45 @@ parserTests = [
         , assertEqual ("parse string with stuff in it", doParse literalString "`abc'", Right "abc")
         , assertEqual ("parse string with whitespace, double quotes", doParse literalString "`abc   \"\"\" '", Right "abc   \"\"\" ")
         , assertEqual ("parse string with whitespace, double quotes", doParse literalString "`The word is `abc''", Right "The word is `abc'")
+        , assertEqual ("subscript symbol symbol", doParse subscript "(a b)",
+                Right
+                    (Subscript
+                        (Symbol "a")
+                        (Symbol "b")))
+        , assertEqual ("subscript with strings", doParse subscript "(`a' `b')",
+                Right
+                    (Subscript
+                        (LiteralString "a")
+                        (LiteralString "b")))
+        , assertEqual ("set expr", doParse set "[(a `b') c]",
+                Right
+                    (Set
+                        (Subscript
+                            (Symbol "a")
+                            (LiteralString "b"))
+                        (Symbol "c")))
+        , assertEqual ("contains expr", doParse testContains "(a `b')?",
+                Right
+                    (TestContains
+                        (Subscript
+                            (Symbol "a")
+                            (LiteralString "b"))))
+        , assertEqual ("entry", doParse dictEntry "x : `2'",
+            Right (Symbol "x", LiteralString "2"))
+        , assertEqual ("empty dict", doParse literalDict "{}",
+                Right [])
+        , assertEqual ("one element dict", doParse literalDict "{x : `2'}",
+            Right [(Symbol "x", LiteralString "2")])
+        , assertEqual ("one element dict", doParse literalDict "{x : `2', x : a }",
+            Right [
+                (Symbol "x", LiteralString "2")
+                , (Symbol "x",
+                    Symbol "a")])
+        , assertEqual ("one element dict", doParse literalDict "{x : `2', x : [a `b'] }",
+            Right [
+                (Symbol "x", LiteralString "2")
+                , (Symbol "x",
+                    Set
+                        (Symbol "a")
+                        (LiteralString "b"))])
     ]
