@@ -1,4 +1,4 @@
-module DictpI.Parser(DictpAST(..), dictP, literalString, parserTests) where
+module DictpI.Parser(DictpAST(..), dictP, parserTests) where
 
 import Text.Parsec
 import Data.Functor.Identity
