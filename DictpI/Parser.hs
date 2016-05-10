@@ -38,9 +38,14 @@ literalString = do
         _ <- char '\''
         return value
 
+quotedString :: Parser String
+quotedString = do
+    str <- literalString
+    return $ "`" ++ str ++  "'"
+
 strContents :: Parser String
 strContents = do
-        chunk <- fmap Just (innocuous <|> literalString) <|> fmap (const Nothing) (lookAhead $ char '\'')
+        chunk <- fmap Just (innocuous <|> quotedString) <|> fmap (const Nothing) (lookAhead $ char '\'')
         case chunk of
             Nothing -> return ""
             Just chunk' -> do
@@ -77,4 +82,5 @@ parserTests = [
         , assertEqual ("parse empty string", doParse literalString "`'", Right "")
         , assertEqual ("parse string with stuff in it", doParse literalString "`abc'", Right "abc")
         , assertEqual ("parse string with whitespace, double quotes", doParse literalString "`abc   \"\"\" '", Right "abc   \"\"\" ")
+        , assertEqual ("parse string with whitespace, double quotes", doParse literalString "`The word is `abc''", Right "The word is `abc'")
     ]
