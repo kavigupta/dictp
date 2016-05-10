@@ -180,4 +180,23 @@ parserTests = [
                     Set
                         (Symbol "a")
                         (LiteralString "b"))])
+        , assertEqual ("one element lambda", doParse dictP "< ((+ x) x) >",
+            Right $ Lambda [
+                    Subscript
+                        (Subscript
+                            (Symbol "+")
+                            (Symbol "x"))
+                        (Symbol "x")
+                ])
+        , assertEqual ("multi element lambda", doParse dictP "< (print x) ((+ x) x) >",
+            Right $ Lambda [
+                    Subscript
+                        (Symbol "print")
+                        (Symbol "x"),
+                    Subscript
+                        (Subscript
+                            (Symbol "+")
+                            (Symbol "x"))
+                        (Symbol "x")
+                ])
     ]
