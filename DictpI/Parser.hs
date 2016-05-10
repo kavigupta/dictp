@@ -28,7 +28,7 @@ dictP = try (Symbol <$> symbol)
 
 -- lots of possible symbols
 symbol :: Parser String
-symbol = many (alphaNum <|> oneOf "-_~!@#$%^&*+")
+symbol = many1 (alphaNum <|> oneOf "-_~!@#$%^&*+")
 
 -- Use ` and ' to quote a string
 literalString :: Parser String
@@ -40,9 +40,12 @@ literalString = do
 
 strContents :: Parser String
 strContents = do
-        chunk <- innocuous <|> literalString
-        rest <- strContents
-        return $ chunk ++ rest
+        chunk <- fmap Just (innocuous <|> literalString) <|> fmap (const Nothing) (lookAhead $ char '\'')
+        case chunk of
+            Nothing -> return ""
+            Just chunk' -> do
+                rest <- strContents
+                return $ chunk' ++ rest
     where
     innocuous = do
         c <- noneOf "`'"
@@ -70,6 +73,7 @@ parserTests = [
         , assertEqual ("parse name", doParse symbol "variable_name", Right "variable_name")
         , assertEqual ("parse multiple", doParse symbol "variable_name asdf", Right "variable_name")
         , assertError ("parse failure", doParse symbol "")
+        , assertEqual ("empty string contents", doParse strContents "'", Right "")
         , assertEqual ("parse empty string", doParse literalString "`'", Right "")
         , assertEqual ("parse string with stuff in it", doParse literalString "`abc'", Right "abc")
         , assertEqual ("parse string with whitespace, double quotes", doParse literalString "`abc   \"\"\" '", Right "abc   \"\"\" ")
