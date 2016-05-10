@@ -19,13 +19,13 @@ doParse :: Parser a -> String -> Either ParseError a
 doParse parser input = runIdentity $ runParserT parser "(unknown)" "" input
 
 nonSpacedDictP :: Parser DictpAST
-nonSpacedDictP = (Symbol <$> symbol)
-            <|> (LiteralString <$> literalString)
+nonSpacedDictP = (LiteralString <$> literalString)
             <|> (LiteralDictionary <$> literalDict)
-            <|> set
-            <|> subscript
+            <|> try set
+            <|> try subscript
             <|> testContains
             <|> lambda
+            <|> (Symbol <$> symbol)
 
 dictP :: Parser DictpAST
 dictP = do
@@ -114,7 +114,14 @@ subscript :: Parser DictpAST
 subscript = binaryGroup ('(', ')') Subscript
 
 set :: Parser DictpAST
-set = binaryGroup ('[', ']') Set
+set = do
+    spaces
+    lhs <- subscript <|> fmap Symbol symbol
+    spaces
+    _ <- char '='
+    spaces
+    rhs <- dictP
+    return $ Set lhs rhs
 
 lambda :: Parser DictpAST
 lambda = do
@@ -149,7 +156,7 @@ parserTests = [
                     (Subscript
                         (LiteralString "a")
                         (LiteralString "b")))
-        , assertEqual ("set expr", doParse set "[(a `b') c]",
+        , assertEqual ("set expr", doParse set "(a `b') = c",
                 Right
                     (Set
                         (Subscript
@@ -173,7 +180,7 @@ parserTests = [
                 (Symbol "x", LiteralString "2")
                 , (Symbol "x",
                     Symbol "a")])
-        , assertEqual ("one element dict", doParse literalDict "{x : `2', x : [a `b'] }",
+        , assertEqual ("one element dict", doParse literalDict "{x : `2', x : a = `b' }",
             Right [
                 (Symbol "x", LiteralString "2")
                 , (Symbol "x",
