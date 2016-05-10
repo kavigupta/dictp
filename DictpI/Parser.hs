@@ -1,4 +1,4 @@
-module DictpI.Parser(DictpAST(..), dictP, parserTests) where
+module DictpI.Parser(DictpAST(..), parseDictP, parserTests) where
 
 import Text.Parsec
 import Data.Functor.Identity
@@ -17,6 +17,9 @@ data DictpAST = Symbol String
         deriving (Eq, Show)
 
 type Parser x = ParsecT String String Identity x
+
+parseDictP :: String -> Either ParseError [DictpAST]
+parseDictP = doParse $ many dictP <* eof
 
 doParse :: Parser a -> String -> Either ParseError a
 doParse parser input = runIdentity $ runParserT parser "(unknown)" "" input
