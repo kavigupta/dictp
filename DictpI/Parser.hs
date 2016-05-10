@@ -111,7 +111,7 @@ binaryGroup (start, end) combinator = do
     return $ combinator dict key
 
 subscript :: Parser DictpAST
-subscript = binaryGroup ('(', ')') Subscript
+subscript = binaryGroup ('[', ']') Subscript
 
 set :: Parser DictpAST
 set = do
@@ -146,24 +146,24 @@ parserTests = [
         , assertEqual ("parse string with stuff in it", doParse literalString "`abc'", Right "abc")
         , assertEqual ("parse string with whitespace, double quotes", doParse literalString "`abc   \"\"\" '", Right "abc   \"\"\" ")
         , assertEqual ("parse string with whitespace, double quotes", doParse literalString "`The word is `abc''", Right "The word is `abc'")
-        , assertEqual ("subscript symbol symbol", doParse subscript "(a b)",
+        , assertEqual ("subscript symbol symbol", doParse subscript "[a b]",
                 Right
                     (Subscript
                         (Symbol "a")
                         (Symbol "b")))
-        , assertEqual ("subscript with strings", doParse subscript "(`a' `b')",
+        , assertEqual ("subscript with strings", doParse subscript "[`a' `b']",
                 Right
                     (Subscript
                         (LiteralString "a")
                         (LiteralString "b")))
-        , assertEqual ("set expr", doParse set "(a `b') = c",
+        , assertEqual ("set expr", doParse set "[a `b'] = c",
                 Right
                     (Set
                         (Subscript
                             (Symbol "a")
                             (LiteralString "b"))
                         (Symbol "c")))
-        , assertEqual ("contains expr", doParse testContains "(a `b')?",
+        , assertEqual ("contains expr", doParse testContains "[a `b']?",
                 Right
                     (TestContains
                         (Subscript
@@ -187,7 +187,7 @@ parserTests = [
                     Set
                         (Symbol "a")
                         (LiteralString "b"))])
-        , assertEqual ("one element lambda", doParse dictP "< ((+ x) x) >",
+        , assertEqual ("one element lambda", doParse dictP "< [[+ x] x] >",
             Right $ Lambda [
                     Subscript
                         (Subscript
@@ -195,7 +195,7 @@ parserTests = [
                             (Symbol "x"))
                         (Symbol "x")
                 ])
-        , assertEqual ("multi element lambda", doParse dictP "< (print x) ((+ x) x) >",
+        , assertEqual ("multi element lambda", doParse dictP "< [print x] [[+ x] x] >",
             Right $ Lambda [
                     Subscript
                         (Symbol "print")
