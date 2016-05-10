@@ -10,6 +10,9 @@ data DictpAST = Symbol String
                 | TestContains DictpAST
                 | Subscript DictpAST DictpAST
                 | Set DictpAST DictpAST
+                | If DictpAST DictpAST DictpAST
+                | And [DictpAST]
+                | Or [DictpAST]
                 | Lambda [DictpAST]
         deriving (Eq, Show)
 
@@ -22,9 +25,11 @@ nonSpacedDictP :: Parser DictpAST
 nonSpacedDictP = (LiteralString <$> literalString)
             <|> (LiteralDictionary <$> literalDict)
             <|> try set
+            <|> try specialForm
             <|> try subscript
             <|> testContains
             <|> lambda
+            <|> parenthesized
             <|> (Symbol <$> symbol)
 
 dictP :: Parser DictpAST
@@ -33,6 +38,21 @@ dictP = do
     val <- nonSpacedDictP
     spaces
     return val
+
+specialForm :: Parser DictpAST
+specialForm = do
+    _ <- char '['
+    spaces
+    first <- symbol
+    spaces
+    rest <- many dictP
+    _ <- char ']'
+    case (first, rest) of
+        ("if", [cond, ifso, ifelse]) -> return $ If cond ifso ifelse
+        ("if", _) -> fail $ "If form with wrong number of arguments: " ++ show rest
+        ("and", vals) -> return $And vals
+        ("or", vals) -> return $ Or vals
+        _ -> fail "Invalid special form"
 
 -- lots of possible symbols
 symbol :: Parser String
@@ -112,6 +132,13 @@ binaryGroup (start, end) combinator = do
 
 subscript :: Parser DictpAST
 subscript = binaryGroup ('[', ']') Subscript
+
+parenthesized :: Parser DictpAST
+parenthesized = do
+    _ <- char '('
+    value <- dictP
+    _ <- char ')'
+    return value
 
 set :: Parser DictpAST
 set = do
@@ -206,4 +233,29 @@ parserTests = [
                             (Symbol "x"))
                         (Symbol "x")
                 ])
+        , assertEqual ("if statement", doParse dictP "[if a b c]",
+            Right $ If (Symbol "a") (Symbol "b") (Symbol "c"))
+        , assertEqual ("complex expression", doParse dictP "factorial = < [if [[eq n] `0'] `1' [[* n] [factorial [[- n] `1']]]] >",
+            Right $ Set
+                (Symbol "factorial")
+                (Lambda [
+                    If
+                        (Subscript
+                            (Subscript
+                                (Symbol "eq")
+                                (Symbol "n"))
+                            (LiteralString "0"))
+                        (LiteralString "1")
+                        (Subscript
+                            (Subscript
+                                (Symbol "*")
+                                (Symbol "n"))
+                            (Subscript
+                                (Symbol "factorial")
+                                (Subscript
+                                    (Subscript
+                                        (Symbol "-")
+                                        (Symbol "n"))
+                                (LiteralString "1"))))
+                ]))
     ]
