@@ -16,16 +16,16 @@ build-type:          Simple
 extra-source-files:  README.md
 cabal-version:       >=1.10
 
-executable dictp
-    main-is:             Main.hs
-    ghc-options:         -Wall -Werror
-    build-depends:       base >=4.8 && <4.9, parsec >=3.1 && <3.2
-    default-language:    Haskell2010
-
 test-suite test-dictp
-    test-module:        DictpI.ParserTest
+    test-module:        DictpI.Tests
     hs-source-dirs:     .
     type:               detailed-0.9
     ghc-options:        -Wall -Werror
     other-modules:      DictpI.Parser
     build-depends:      parsec >=3.1, base >=4.8, Cabal >=1.22
+
+executable dictp
+    main-is:             Main.hs
+    ghc-options:         -Wall -Werror
+    build-depends:       base >=4.8 && <4.9, parsec >=3.1 && <3.2
+    default-language:    Haskell2010

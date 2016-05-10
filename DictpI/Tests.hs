@@ -1,12 +1,7 @@
-module DictpI.ParserTest(tests) where
+module DictpI.Tests(tests) where
 
 import DictpI.Parser
 import Distribution.TestSuite
-
-theTests :: [(String, Bool)]
-theTests = [
-     assertEqual ("parse String", doParse symbol "abc* ", Right "abc*")
-    ]
 
 {-
     runParseTests :: [(String, Bool)] -> String
@@ -19,12 +14,7 @@ theTests = [
 -}
 
 tests :: IO [Test]
-tests = return $ map suiteify theTests
-
-assertEqual :: (Eq a, Show a) => (String, a, a) -> (String, Bool)
-assertEqual (msg, x, y)
-    | x == y    = (msg, True)
-    | otherwise = (msg ++ "\t" ++ show x ++ " /= " ++ show y, False)
+tests = return $ map suiteify parserTests
 
 suiteify :: (String, Bool) -> Test
 suiteify (msg, test) = Test testinst

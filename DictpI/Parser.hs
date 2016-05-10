@@ -1,7 +1,8 @@
-module DictpI.Parser(DictpAST(..), dictP, doParse, symbol) where
+module DictpI.Parser(DictpAST(..), dictP, literalString, parserTests) where
 
 import Text.Parsec
 import Data.Functor.Identity
+import DictpI.Testing
 
 data DictpAST = Symbol String
                 | LiteralString String
@@ -36,15 +37,16 @@ literalString = do
         value <- strContents
         _ <- char '\''
         return value
+
+strContents :: Parser String
+strContents = do
+        chunk <- innocuous <|> literalString
+        rest <- strContents
+        return $ chunk ++ rest
     where
-    strContents = do
-            chunk <- innocuous <|> literalString
-            rest <- strContents
-            return $ chunk ++ rest
-        where
-        innocuous = do
-            c <- noneOf "`'"
-            return [c]
+    innocuous = do
+        c <- noneOf "`'"
+        return [c]
 
 literalDict :: Parser [(DictpAST, DictpAST)]
 literalDict = do
@@ -60,3 +62,15 @@ set :: a
 set = undefined
 lambda :: a
 lambda = undefined
+
+parserTests :: [(String, Bool)]
+parserTests = [
+        assertEqual ("parse symbol", doParse symbol "abc* ", Right "abc*")
+        , assertEqual ("parse other symbol", doParse symbol "*", Right "*")
+        , assertEqual ("parse name", doParse symbol "variable_name", Right "variable_name")
+        , assertEqual ("parse multiple", doParse symbol "variable_name asdf", Right "variable_name")
+        , assertError ("parse failure", doParse symbol "")
+        , assertEqual ("parse empty string", doParse literalString "`'", Right "")
+        , assertEqual ("parse string with stuff in it", doParse literalString "`abc'", Right "abc")
+        , assertEqual ("parse string with whitespace, double quotes", doParse literalString "`abc   \"\"\" '", Right "abc   \"\"\" ")
+    ]
